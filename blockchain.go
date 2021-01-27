@@ -6,7 +6,9 @@ import (
 )
 
 type Blockchain struct {
-	Blocks []*Block
+	Blocks     []*Block
+	Mask       []byte
+	Difficulty int
 }
 
 func (bc *Blockchain) String() string {
@@ -25,13 +27,16 @@ func (bc *Blockchain) Add(data string) {
 	}
 	prevHash := bc.Blocks[lenBlockchain-1].Hash
 
-	bc.Blocks = append(bc.Blocks, NewBlock(data, prevHash))
+	bc.Blocks = append(bc.Blocks, NewBlock(data, bc.Mask, prevHash))
 
 }
 
-func NewBlockchain() *Blockchain {
+func NewBlockchain(difficulty int) *Blockchain {
+	mask := GenerateMask(difficulty)
 	bc := Blockchain{
-		Blocks: []*Block{NewBlock("Genesis Block", []byte{})},
+		Difficulty: difficulty,
+		Mask:       mask,
+		Blocks:     []*Block{NewBlock("Genesis Block", mask, []byte{})},
 	}
 
 	return &bc
@@ -39,14 +44,14 @@ func NewBlockchain() *Blockchain {
 
 func (bc *Blockchain) Validate() error {
 	for i, v := range bc.Blocks {
-		if err := v.Validate(); err != nil {
+		if err := v.Validate(bc.Mask); err != nil {
 			return fmt.Errorf("Blockchain is not valid : \n %w", err)
 		}
 		if i == 0 {
 			continue
 		}
 		if !bytes.Equal(v.PrevHash, bc.Blocks[i-1].Hash) {
-			return fmt.Errorf("the order of blocks is invalid in Block : %d,\n it is:\n%x \nshould be :\n %x .",
+			return fmt.Errorf("the order of blocks is invalid in Block : %d,\n  it is:\n%x \nshould be :\n %x .",
 				i, v.PrevHash, bc.Blocks[i-1].Hash)
 		}
 	}
