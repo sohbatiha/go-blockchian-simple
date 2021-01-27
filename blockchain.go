@@ -1,9 +1,13 @@
 package main
 
+import (
+	"bytes"
+	"fmt"
+)
+
 type Blockchain struct {
 	Blocks []*Block
 }
-
 
 func (bc *Blockchain) String() string {
 	var ret string
@@ -25,7 +29,6 @@ func (bc *Blockchain) Add(data string) {
 
 }
 
-
 func NewBlockchain() *Blockchain {
 	bc := Blockchain{
 		Blocks: []*Block{NewBlock("Genesis Block", []byte{})},
@@ -34,3 +37,20 @@ func NewBlockchain() *Blockchain {
 	return &bc
 }
 
+func (bc *Blockchain) Validate() error {
+	for i, v := range bc.Blocks {
+		if err := v.Validate(); err != nil {
+			return fmt.Errorf("Blockchain is not valid : \n %w", err)
+		}
+		if i == 0 {
+			continue
+		}
+		if !bytes.Equal(v.PrevHash, bc.Blocks[i-1].Hash) {
+			return fmt.Errorf("the order of blocks is invalid in Block : %d,\n it is:\n%x \nshould be :\n %x .",
+				i, v.PrevHash, bc.Blocks[i-1].Hash)
+		}
+	}
+
+	return nil
+
+}
