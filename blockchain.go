@@ -1,61 +1,77 @@
 package main
 
 import (
-	"bytes"
+	"errors"
 	"fmt"
 )
 
+var ErrorNotInitialize = errors.New("blockchain not initialize")
+
 type Blockchain struct {
-	Blocks     []*Block
 	Mask       []byte
 	Difficulty int
+	store      Store
 }
 
-func (bc *Blockchain) String() string {
-	var ret string
-	for _, v := range bc.Blocks {
-		ret += v.String()
+func (bc *Blockchain) Print() error {
+
+	return Iterate(bc.store, func(block *Block) error {
+		fmt.Println(block)
+		return nil
+	})
+
+}
+
+func (bc *Blockchain) Add(data string) (*Block, error) {
+	lastHash, err := bc.store.LastHash()
+	if err != nil {
+		return nil, err
 	}
-	return ret
-}
+	block := NewBlock(data, bc.Mask, lastHash)
 
-func (bc *Blockchain) Add(data string) {
-	lenBlockchain := len(bc.Blocks)
-
-	if lenBlockchain <= 0 {
-		panic("First Create Blockchain then add block !")
+	if err := bc.store.Append(block); err != nil {
+		return nil, err
 	}
-	prevHash := bc.Blocks[lenBlockchain-1].Hash
 
-	bc.Blocks = append(bc.Blocks, NewBlock(data, bc.Mask, prevHash))
+	return block, nil
 
 }
 
-func NewBlockchain(difficulty int) *Blockchain {
+func NewBlockchain(difficulty int, store Store) (*Blockchain, error) {
 	mask := GenerateMask(difficulty)
 	bc := Blockchain{
 		Difficulty: difficulty,
 		Mask:       mask,
-		Blocks:     []*Block{NewBlock("Genesis Block", mask, []byte{})},
+		store:      store,
 	}
 
-	return &bc
+	_, err := store.LastHash()
+
+	if err == nil {
+		return &bc, nil
+	}
+
+	if !errors.Is(err, ErrorNotInitialize) {
+		return nil, err
+	}
+
+	if errors.Is(err, ErrorNotInitialize) {
+		err := store.Append(NewBlock("Genesis Block", mask, []byte{}))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &bc, nil
 }
 
 func (bc *Blockchain) Validate() error {
-	for i, v := range bc.Blocks {
-		if err := v.Validate(bc.Mask); err != nil {
+
+	return Iterate(bc.store, func(block *Block) error {
+		if err := block.Validate(bc.Mask); err != nil {
 			return fmt.Errorf("Blockchain is not valid : \n %w", err)
 		}
-		if i == 0 {
-			continue
-		}
-		if !bytes.Equal(v.PrevHash, bc.Blocks[i-1].Hash) {
-			return fmt.Errorf("the order of blocks is invalid in Block : %d,\n  it is:\n%x \nshould be :\n %x .",
-				i, v.PrevHash, bc.Blocks[i-1].Hash)
-		}
-	}
-
-	return nil
+		return nil
+	})
 
 }
