@@ -14,7 +14,12 @@ func main() {
 
 	// difficulty is number of zeros
 	difficulty := 4
-	store := createNewMemoryStore()
+
+	// store in memory
+	//store := createNewMemoryStore()
+
+	//store in file
+	store := CreateNewFileStore("/home/mahdi/bc")
 
 	bc, err := NewBlockchain(difficulty, store)
 	if err != nil {
